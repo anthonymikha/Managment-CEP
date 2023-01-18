@@ -1,0 +1,39 @@
+---
+- name: "cloning the java app git repo"
+  ansible.builtin.git:
+    repo: https://github.com/KhalilSawma/addressbook.git
+    dest: /home/assessment2
+    clone: yes
+  ignore_errors: yes
+
+- name: "installing maven on worker node"
+  apt:
+    name: maven
+    state: present
+    update_cache: yes
+  become: true
+
+- name: "package the maven java app"
+  command: chdir=/home/assessment2 mvn package
+
+- name: Add the OS specific variables
+  include_vars: "{{ item }}"
+  with_first_found:
+    - "{{ ansible_distribution }}{{ ansible_distribution_major_version }}.yml"
+    - "{{ ansible_os_family }}.yml"
+
+- include_tasks: "tomcat-setup-{{ ansible_os_family }}.yml"
+
+- name: "changing permissions of tomcat folder"
+  command: chmod -R 777 /usr/share/tomcat
+  become: yes
+
+- name: "move the war file to the webapps folder of tomcat"
+  command: cp /home/assessment2/target/addressbook-2.0.war /usr/share/tomcat/webapps
+  become: yes
+
+- name: "restarting tomcat"
+  command: chdir=/usr/share/tomcat/bin ./shutdown.sh
+
+- name: "restarting tomcat2"
+  command: chdir=/usr/share/tomcat/bin ./startup.sh
